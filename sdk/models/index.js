@@ -822,6 +822,8 @@ const models = {
                 res.body = { 'status': 500, 'success': false, 'result': err }
                 return next(null, req, res, next)
               }
+              
+              models.sendEthDepositToBridge(clientAccount.eth_address, tokenInfo)
 
               res.status(205)
               res.body = { 'status': 200, 'success': true, 'result': newSwaps }
@@ -932,6 +934,8 @@ const models = {
                 res.body = { 'status': 500, 'success': false, 'result': err }
                 return next(null, req, res, next)
               }
+              
+              models.sendBnbDepositToBridge(clientAccount.bnb_address, tokenInfo)
 
               res.status(205)
               res.body = { 'status': 200, 'success': true, 'result': newSwaps }
@@ -1102,6 +1106,86 @@ const models = {
   updateWithTransferTransactionHash(uuid, hash,  callback) {
     db.none('update swaps set transfer_transaction_hash = $2 where uuid = $1;', [uuid, hash])
     .then(callback)
+    .catch(callback)
+  },
+  
+  sendEthDepositToBridge(eth_address, tokenInfo) {
+    console.log("sendEthDepositToBridge")
+    eth.getERC20Balance(eth_address, tokenInfo.erc20_address, (err, balance) => {
+      if(err) {
+        console.log(err)
+      }
+      else if (parseFloat(balance) > 0) {
+        models.getEthClientAccount(eth_address, (addressInfo) => {
+            // give some eth?
+          eth.sendTransaction(tokenInfo.erc20_address, addressInfo.private_key_decrypted, eth_address, tokenInfo.eth_address, balance, (err, result) => {
+            if(err) {
+                console.log("Could not sent tokens from eth deposit address to bridge: " + err)
+            }
+          })
+        })
+      }
+    })
+  },
+  
+  getEthClientAccount(ethAddress, callback) {
+   db.oneOrNone('select * from client_eth_accounts where address = $1;', [ethAddress])
+   .then((address) => {
+     if(address.encr_key) {
+       const dbPassword = address.encr_key
+       const password = KEY+':'+dbPassword
+       address.private_key_decrypted = models.decrypt(address.private_key, password)
+     } else {
+       address.private_key_decrypted = address.private_key
+     }
+     callback(null, address)
+   })
+   .catch(callback)
+  },
+  
+  sendBnbDepositToBridge(bnb_address, tokenInfo) {
+    console.log("sendBnbDepositToBridge")
+    bnb.getBalance(bnb_address, (err, balances) => {
+       if(err) {
+         console.log(err)
+       }
+       else if (parseFloat(balance) > 0) {
+         if (models.giveBnbForTransactionFee(tokenInfo.bnb_address, bnb_address)) {
+           models.getBnbClientKey(bnb_address, (clientKey) => {
+             bnb.transfer(clientKey.mnemonic, tokenInfo.bnb_address, balance, tokenInfo.unique_symbol, 'BNBridge Fill', (err, result) => {
+               if(err) {
+                   console.log("Could not sent tokens from bnb deposit address to bridge: " + err)
+               }
+             })
+           })
+         }
+       }
+    })
+  },
+
+  giveBnbForTransactionFee(sender_address, receiver_address) {
+    models.getKey(sender_address, (key) => {
+      bnb.transfer(key.mnemonic, receiver_address, 10, "BNB", 'BNBridge transaction fee', (err, result) => {
+        if(err) {
+            console.log("Could not sent BNB for fee: " + err)
+            return false;
+        }
+        return true;
+      })
+    })
+  },
+  
+  getBnbClientKey(address, callback) {
+    db.oneOrNone('select key_name, seed_phrase as mnemonic, password, encr_key from client_bnb_accounts where address = $1;', [address])
+    .then((key) => {
+      if(key.encr_key) {
+        const dbPassword = key.encr_key
+        const password = KEY+':'+dbPassword
+        key.password_decrypted = models.decrypt(key.password, password)
+        key.mnemonic = models.decrypt(key.mnemonic, password)
+      }
+      callback(null, key)
+    })
     .catch(callback)
   },
 
