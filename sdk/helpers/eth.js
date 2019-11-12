@@ -4,6 +4,9 @@ const config = require('../config')
 var web3 = new Web3(new Web3.providers.HttpProvider(config.provider));
 
 const eth = {
+
+  minTxValue: 21000 * web3.eth.toWei(25, "GWei"),
+
   createAccount(callback) {
     let account = web3.eth.accounts.create()
     callback(null, account)
@@ -150,6 +153,46 @@ const eth = {
       callback(null, result.toString())
     }
 
+  },
+
+  async transferEth(privateKey, from, to, amount, callback) {
+
+    let sendAmount = web3.utils.toWei(amount, 'ether')
+
+    const tx = {
+      from,
+      to,
+      value: sendAmount,
+      gasPrice: web3.utils.toWei('25', 'gwei'),
+      gas: 21000,
+      nonce: await web3.eth.getTransactionCount(from,'pending'),
+    }
+
+    const signed = await web3.eth.accounts.signTransaction(tx, privateKey)
+    const rawTx = signed.rawTransaction
+
+    const sendRawTx = rawTx =>
+      new Promise((resolve, reject) =>
+        web3.eth
+          .sendSignedTransaction(rawTx)
+          .on('transactionHash', resolve)
+          .on('error', reject)
+      )
+
+    const result = await sendRawTx(rawTx).catch((err) => {
+      return callback(err, null)
+    })
+
+    if(result.toString().includes('error')) {
+      return callback(result, null)
+    } else {
+      return callback(null, result.toString())
+    }
+
+  },
+
+  getEthBalance(address, callback) {
+    web3.eth.getBalance(address, callback);
   },
 }
 
