@@ -5,7 +5,7 @@ var web3 = new Web3(new Web3.providers.HttpProvider(config.provider));
 
 const eth = {
 
-  minTxValue: 21000 * web3.eth.toWei(25, "GWei"),
+  minTxValue: 21000 * web3.utils.toWei("30", "GWei"),
 
   createAccount(callback) {
     let account = web3.eth.accounts.create()
