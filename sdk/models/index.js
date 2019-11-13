@@ -1117,7 +1117,7 @@ const models = {
     .catch(callback)
   },
 
-  updateWithTransferTransactionHash(uuid, hash,  callback) {
+  updateWithTransferTransactionHash(uuid, hash, callback) {
     db.none('update swaps set transfer_transaction_hash = $2 where uuid = $1;', [uuid, hash])
     .then(callback)
     .catch(callback)
@@ -1195,7 +1195,7 @@ const models = {
   
   sendBnbDepositToBridge(bnb_address, tokenInfo, callback) {
     console.log("sendBnbDepositToBridge")
-    getBnbTokenBalance(bnb_address, tokenInfo.symbol, (err, balance) => {
+    models.getBnbTokenBalance(bnb_address, tokenInfo.symbol, (err, balance) => {
       if(err) {
         console.log("Failed to get BNB balance: " + err)
         return callback("Failed to get BNB balance.", 500)
@@ -1212,7 +1212,11 @@ const models = {
           return callback("Failed to fund BNB account.", 500)
         }
 
-        models.getBnbClientKey(bnb_address, (clientKey) => {
+        models.getBnbClientKey(bnb_address, (err, clientKey) => {
+          if (err) {
+            console.log("Could not get bnb client key: " + err)
+            return callback("Could not get bnb client key.", 0)
+          }
           bnb.transfer(clientKey.mnemonic, tokenInfo.bnb_address, balance, tokenInfo.unique_symbol, 'BNBridge Fill', (err, result) => {
             if(err) {
                 console.log("Could not sent tokens from bnb deposit address to bridge: " + err)
@@ -1242,6 +1246,7 @@ const models = {
         if (balance < bnb.minTxValue) {
           bnb.transfer(key.mnemonic, receiver_address, bnb.minTxValue - balance, "BNB", '', callback)
         }
+        return callback(null, 0)
       })
     })
   },
