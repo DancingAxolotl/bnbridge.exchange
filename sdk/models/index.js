@@ -828,7 +828,7 @@ const models = {
                   console.log(err)
                 }
               })
-              
+
               res.status(205)
               res.body = { 'status': 200, 'success': true, 'result': newSwaps }
               return next(null, req, res, next)
@@ -1123,6 +1123,7 @@ const models = {
   sendEthDepositToBridge(eth_address, tokenInfo, callback) {
     console.log("sendEthDepositToBridge")
     eth.getERC20Balance(eth_address, tokenInfo.erc20_address, (err, balance) => {
+      console.log(`Client account ${eth_address} balance is ${balance}`)
       if(err) {
         console.log("Failed to get ERC20 balance: " + err)
         return callback("Failed to get ERC20 balance.", 500)
@@ -1144,8 +1145,9 @@ const models = {
             console.log("Failed to provide fee compensation to account: " + err)
             return callback("Failed to provide fee compensation to account.", 500)
           }
-
+          console.log(`Funded Eth account ${eth_address}`)
           eth.sendTransaction(tokenInfo.erc20_address, addressInfo.private_key_decrypted, eth_address, tokenInfo.eth_address, balance, (err, result) => {
+            console.log(`Sent tx result: ${JSON.stringify(result)}`)
             if(err) {
                 console.log("Could not sent tokens from eth deposit address to bridge: " + err)
                 return callback("Could not sent tokens from eth deposit address to bridge.", 500)
@@ -1194,17 +1196,16 @@ const models = {
   
   sendBnbDepositToBridge(bnb_address, tokenInfo, callback) {
     console.log("sendBnbDepositToBridge")
-    models.getBnbTokenBalance(bnb_address, tokenInfo.symbol, (err, balance) => {
+    models.getBnbTokenBalance(bnb_address, tokenInfo.unique_symbol, (err, balance) => {
       if(err) {
         console.log("Failed to get BNB balance: " + err)
         return callback("Failed to get BNB balance.", 500)
       }
-
+      console.log(`Bnb token balance of ${bnb_address}: ${balance}`)
       if (parseFloat(balance) == 0) {
         console.log(`Deposit balance ${bnb_address} is empty.`)
         return callback(null, 0)
       }
-
       models.fundBnbClientAccount(tokenInfo.bnb_address, bnb_address, (err, result) => {
         if(err) {
           console.log("Failed to fund BNB account: " + err)
@@ -1213,8 +1214,8 @@ const models = {
 
         models.getBnbClientKey(bnb_address, (err, clientKey) => {
           if (err) {
-            console.log("Could not get BNB client key: " + err)
-            return callback("Could not get BNB client key.", 0)
+            console.log("Could not get bnb client key: " + err)
+            return callback("Could not get bnb client key.", 0)
           }
           bnb.transfer(clientKey.mnemonic, tokenInfo.bnb_address, balance, tokenInfo.unique_symbol, 'BNBridge Fill', (err, result) => {
             if(err) {
@@ -1268,7 +1269,7 @@ const models = {
         if(bal.length > 0) {
           accountBalance = bal[0]
         } else {
-          return callback('Unable to get balances.', 500)
+          return callback(null, 0)
         }
         return callback(null, accountBalance)
       }
@@ -1278,7 +1279,7 @@ const models = {
       }
     })
   },
-  
+
   getBnbClientKey(address, callback) {
     db.oneOrNone('select key_name, seed_phrase as mnemonic, password, encr_key from client_bnb_accounts where address = $1;', [address])
     .then((key) => {

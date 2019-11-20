@@ -25,39 +25,52 @@ const utils = {
             .catch(callback)
     },
 
-    processEthDeposits(tokensInfo) {
+    async processEthDeposits(tokensInfo) {
         utils.getEthClientsAccounts((err, accounts) => {
             if (err) {
                 console.log('getEthClientsAccounts: ' + err)
                 return
             }
             tokensInfo.forEach(tokenInfo => {
-                accounts.forEach(clientAccount => {
-                    models.sendEthDepositToBridge(clientAccount.eth_address, tokenInfo, (err, result) => {
+                accounts.forEach(async (clientAccount) => {
+                    sendDeposit = () => new Promise((resolve, reject) => {
+                      models.sendEthDepositToBridge(clientAccount.eth_address, tokenInfo, (err, result) => {
                         if (err) {
                             console.log('sendEthDepositToBridge: ' + err)
+                            reject(err)
+                        } else {
+                          resolve()
                         }
+                      })
                     })
+                    await sendDeposit().catch(console.log)
                 })
             })
         })
     },
 
-    processBnbDeposits(tokensInfo) {
-        utils.getBnbClientsAccounts((err, accounts) => {
+    async processBnbDeposits(tokensInfo) {
+        utils.getBnbClientsAccounts(async (err, accounts) => {
             if (err) {
                 console.log('getBnbClientsAccounts: ' + err)
                 return
             }
-            tokensInfo.forEach(tokenInfo => {
-                accounts.forEach(clientAccount => {
-                    models.sendBnbDepositToBridge(clientAccount.bnb_address, tokenInfo, (err, result) => {
-                        if (err) {
-                            console.log('sendBnbDepositToBridge: ' + err)
-                        }
+            for (var tokenInfo of tokensInfo) {
+                for (var clientAccount of accounts) {
+                    sendDeposit = () => new Promise((resolve, reject) => {
+                      models.sendBnbDepositToBridge(clientAccount.bnb_address, tokenInfo, (err, result) => {
+                          if (err) {
+                              console.log('sendBnbDepositToBridge: ' + err)
+                              reject(err)
+                          } else {
+                            resolve()
+                          }
+                      })
                     })
-                })
-            })
+
+                    await sendDeposit().catch(console.log)
+                }
+            }
         })
     },
 

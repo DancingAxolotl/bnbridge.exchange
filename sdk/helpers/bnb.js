@@ -200,6 +200,7 @@ const bnb = {
     const sequenceURL = `${config.api}api/v1/account/${publicFrom}/sequence`;
 
     const bnbClient = new BnbApiClient(config.api);
+    bnbClient.chooseNetwork(config.network);
     bnbClient.setPrivateKey(privateFrom);
     bnbClient.initChain();
 
