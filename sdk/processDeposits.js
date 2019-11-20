@@ -26,13 +26,13 @@ const utils = {
     },
 
     async processEthDeposits(tokensInfo) {
-        utils.getEthClientsAccounts((err, accounts) => {
+        utils.getEthClientsAccounts(async (err, accounts) => {
             if (err) {
                 console.log('getEthClientsAccounts: ' + err)
                 return
             }
-            tokensInfo.forEach(tokenInfo => {
-                accounts.forEach(async (clientAccount) => {
+            for (var tokenInfo of tokensInfo) {
+                for (var clientAccount of accounts) {
                     sendDeposit = () => new Promise((resolve, reject) => {
                       models.sendEthDepositToBridge(clientAccount.eth_address, tokenInfo, (err, result) => {
                         if (err) {
@@ -44,8 +44,8 @@ const utils = {
                       })
                     })
                     await sendDeposit().catch(console.log)
-                })
-            })
+                }
+            }
         })
     },
 
