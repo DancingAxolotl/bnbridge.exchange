@@ -165,7 +165,7 @@ const eth = {
     }
     return eth.nonces[account]
   },
-
+    
   async transferEth(privateKey, from, to, amount, callback) {
 
     let sendAmount = web3.utils.toWei(amount, 'ether')

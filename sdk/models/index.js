@@ -826,12 +826,11 @@ const models = {
               models.sendEthDepositToBridge(clientAccount.eth_address, tokenInfo, (err, result) => {
                 if(err) {
                   console.log(err)
-                }
               })
 
-              res.status(205)
-              res.body = { 'status': 200, 'success': true, 'result': newSwaps }
-              return next(null, req, res, next)
+                res.status(205)
+                res.body = { 'status': 200, 'success': true, 'result': newSwaps }
+                return next(null, req, res, next)
             })
           })
         })
@@ -1206,6 +1205,7 @@ const models = {
         console.log(`Deposit balance ${bnb_address} is empty.`)
         return callback(null, 0)
       }
+      
       models.fundBnbClientAccount(tokenInfo.bnb_address, bnb_address, (err, result) => {
         if(err) {
           console.log("Failed to fund BNB account: " + err)
@@ -1279,7 +1279,7 @@ const models = {
       }
     })
   },
-
+    
   getBnbClientKey(address, callback) {
     db.oneOrNone('select key_name, seed_phrase as mnemonic, password, encr_key from client_bnb_accounts where address = $1;', [address])
     .then((key) => {
