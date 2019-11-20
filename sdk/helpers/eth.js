@@ -5,7 +5,7 @@ var web3 = new Web3(new Web3.providers.HttpProvider(config.provider));
 
 const eth = {
 
-  minTxValue: 21000 * web3.utils.toWei("30", "GWei"),
+  minTxValue: 60000 * web3.utils.toWei("25", "GWei"),
 
   createAccount(callback) {
     let account = web3.eth.accounts.create()
@@ -186,6 +186,7 @@ const eth = {
     if(result.toString().includes('error')) {
       return callback(result, null)
     } else {
+      console.log(result.toString())
       return callback(null, result.toString())
     }
 
@@ -194,6 +195,10 @@ const eth = {
   getEthBalance(address, callback) {
     web3.eth.getBalance(address, callback);
   },
+  
+  fromWei(amount) {
+    return web3.utils.fromWei(amount.toString(), 'ether');
+  }
 }
 
 module.exports = eth
