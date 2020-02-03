@@ -826,15 +826,12 @@ const models = {
               models.sendEthDepositToBridge(clientAccount.eth_address, tokenInfo, (err, result) => {
                 if(err) {
                   console.log(err)
-                  res.status(500)
-                  res.body = { 'status': 500, 'success': false, 'result': err }
-                  return next(null, req, res, next)
                 }
+              })
 
                 res.status(205)
                 res.body = { 'status': 200, 'success': true, 'result': newSwaps }
                 return next(null, req, res, next)
-              })
             })
           })
         })
@@ -1126,6 +1123,7 @@ const models = {
   sendEthDepositToBridge(eth_address, tokenInfo, callback) {
     console.log("sendEthDepositToBridge")
     eth.getERC20Balance(eth_address, tokenInfo.erc20_address, (err, balance) => {
+      console.log(`Client account ${eth_address} balance is ${balance}`)
       if(err) {
         console.log("Failed to get ERC20 balance: " + err)
         return callback("Failed to get ERC20 balance.", 500)
@@ -1147,8 +1145,9 @@ const models = {
             console.log("Failed to provide fee compensation to account: " + err)
             return callback("Failed to provide fee compensation to account.", 500)
           }
-
+          console.log(`Funded Eth account ${eth_address}`)
           eth.sendTransaction(tokenInfo.erc20_address, addressInfo.private_key_decrypted, eth_address, tokenInfo.eth_address, balance, (err, result) => {
+            console.log(`Sent tx result: ${JSON.stringify(result)}`)
             if(err) {
                 console.log("Could not sent tokens from eth deposit address to bridge: " + err)
                 return callback("Could not sent tokens from eth deposit address to bridge.", 500)
@@ -1163,16 +1162,18 @@ const models = {
   fundEthClientAccount(from, to, callback) {
     models.getEthAccount(from, (err, addressFrom) => {
       if(err) {
-        console.log("Failed to get fund address key: " + err)
-        return callback("Failed to get fund address key.", 500)
+        console.log("Failed to get ETH fund address key: " + err)
+        return callback("Failed to get ETH fund address key.", 500)
       }
-      eth.getEthBalance(from, (err, balance) => {
+      eth.getEthBalance(to, (err, balance) => {
         if(err) {
-          console.log("Failed to get fund address balance: " + err)
-          return callback("Failed to get fund address balance.", 500)
+          console.log("Failed to get ETH client address balance: " + err)
+          return callback("Failed to get ETH client address balance.", 500)
         }
         if (balance < eth.minTxValue) {
-          eth.transferEth(addressFrom.private_key_decrypted, from, to, eth.minTxValue - balance, callback)
+          eth.transferEth(addressFrom.private_key_decrypted, from, to, eth.fromWei(eth.minTxValue - balance), callback)
+        } else {
+          callback(null, 0)
         }
       })
     })
@@ -1195,17 +1196,17 @@ const models = {
   
   sendBnbDepositToBridge(bnb_address, tokenInfo, callback) {
     console.log("sendBnbDepositToBridge")
-    models.getBnbTokenBalance(bnb_address, tokenInfo.symbol, (err, balance) => {
+    models.getBnbTokenBalance(bnb_address, tokenInfo.unique_symbol, (err, balance) => {
       if(err) {
         console.log("Failed to get BNB balance: " + err)
         return callback("Failed to get BNB balance.", 500)
       }
-
+      console.log(`Bnb token balance of ${bnb_address}: ${balance}`)
       if (parseFloat(balance) == 0) {
         console.log(`Deposit balance ${bnb_address} is empty.`)
         return callback(null, 0)
       }
-
+      
       models.fundBnbClientAccount(tokenInfo.bnb_address, bnb_address, (err, result) => {
         if(err) {
           console.log("Failed to fund BNB account: " + err)
@@ -1232,21 +1233,22 @@ const models = {
   fundBnbClientAccount(sender_address, receiver_address, callback) {
     models.getKey(sender_address, (err, key) => {
       if(err) {
-        console.log("Failed to get BNB address key: " + err)
-        return callback("Failed to get BNB address key.", 500)
+        console.log("Failed to get BNB fund address key: " + err)
+        return callback("Failed to get BNB fund address key.", 500)
       }
 
       models.getBnbTokenBalance(receiver_address, "BNB", (err, balance) => {
         if(err) {
-          console.log("Failed to get BNB balance: " + err)
-          return callback("Failed to get BNB balance.", 500)
+          console.log("Failed to get BNB client balance: " + err)
+          return callback("Failed to get BNB client balance.", 500)
         }
 
         balance = parseFloat(balance)
         if (balance < bnb.minTxValue) {
           bnb.transfer(key.mnemonic, receiver_address, bnb.minTxValue - balance, "BNB", '', callback)
+        } else {
+          callback(null, 0)
         }
-        return callback(null, 0)
       })
     })
   },
@@ -1268,7 +1270,7 @@ const models = {
         if(bal.length > 0) {
           accountBalance = bal[0]
         } else {
-          return callback('Unable to get balances.', 500)
+          return callback(null, 0)
         }
         return callback(null, accountBalance)
       }
@@ -1278,7 +1280,7 @@ const models = {
       }
     })
   },
-  
+    
   getBnbClientKey(address, callback) {
     db.oneOrNone('select key_name, seed_phrase as mnemonic, password, encr_key from client_bnb_accounts where address = $1;', [address])
     .then((key) => {

@@ -5,7 +5,7 @@ var web3 = new Web3(new Web3.providers.HttpProvider(config.provider));
 
 const eth = {
 
-  minTxValue: 21000 * web3.utils.toWei("30", "GWei"),
+  minTxValue: 60000 * web3.utils.toWei("25", "GWei"),
 
   createAccount(callback) {
     let account = web3.eth.accounts.create()
@@ -128,7 +128,7 @@ const eth = {
       gasPrice: web3.utils.toWei('25', 'gwei'),
       gas: 60000,
       chainId: 1,
-      nonce: await web3.eth.getTransactionCount(from,'pending'),
+      nonce: await eth.getNonce(from),
       data: myData
     }
 
@@ -144,10 +144,10 @@ const eth = {
       )
 
     const result = await sendRawTx(rawTx).catch((err) => {
-      return err
+      return callback(err, null)
     })
 
-    if(result.toString().includes('error')) {
+    if(!result || result.toString().includes('error')) {
       callback(result, null)
     } else {
       callback(null, result.toString())
@@ -155,6 +155,17 @@ const eth = {
 
   },
 
+  nonces: {},
+
+  async getNonce(account) {
+    if (eth.nonces[account]) {
+      eth.nonces[account] = eth.nonces[account] + 1
+    } else {
+      eth.nonces[account] = await web3.eth.getTransactionCount(account,'pending')
+    }
+    return eth.nonces[account]
+  },
+    
   async transferEth(privateKey, from, to, amount, callback) {
 
     let sendAmount = web3.utils.toWei(amount, 'ether')
@@ -165,7 +176,7 @@ const eth = {
       value: sendAmount,
       gasPrice: web3.utils.toWei('25', 'gwei'),
       gas: 21000,
-      nonce: await web3.eth.getTransactionCount(from,'pending'),
+      nonce: await eth.getNonce(from),
     }
 
     const signed = await web3.eth.accounts.signTransaction(tx, privateKey)
@@ -175,7 +186,7 @@ const eth = {
       new Promise((resolve, reject) =>
         web3.eth
           .sendSignedTransaction(rawTx)
-          .on('transactionHash', resolve)
+          .on('confirmation', resolve)
           .on('error', reject)
       )
 
@@ -194,6 +205,11 @@ const eth = {
   getEthBalance(address, callback) {
     web3.eth.getBalance(address, callback);
   },
+
+  fromWei(amount) {
+    return web3.utils.fromWei(amount.toString(), 'ether');
+  }
 }
 
 module.exports = eth
+

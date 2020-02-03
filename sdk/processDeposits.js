@@ -14,51 +14,63 @@ const utils = {
             utils.processEthDeposits(tokensInfo)
             console.log("Processing bnb deposits...")
             utils.processBnbDeposits(tokensInfo)
-            console.log("Processing finished.")
         })
     },
 
     getTokensInfo(callback) {
-        db.manyOrNone('select tok.uuid, tok.name, tok.symbol, tok.unique_symbol, tok.total_supply, tok.fee_per_swap, tok.minimum_swap_amount, tok.erc20_address, bnb.address as bnb_address, eth.address as eth_address from tokens tok left join bnb_accounts bnb on bnb.uuid = tok.bnb_account_uuid left join eth_accounts eth on eth.uuid = tok.eth_account_uuid ;')
+        db.manyOrNone('select tok.uuid, tok.name, tok.symbol, tok.unique_symbol, tok.total_supply, tok.fee_per_swap, tok.minimum_swap_amount, tok.erc20_address, bnb.address as bnb_address, eth.address as eth_address from tokens tok left join bnb_accounts bnb on bnb.uuid = tok.bnb_account_uuid left join eth_accounts eth on eth.uuid = tok.eth_account_uuid where tok.processed = \'t\' ;')
             .then((response) => {
                 callback(null, response)
             })
             .catch(callback)
     },
 
-    processEthDeposits(tokensInfo) {
-        utils.getEthClientsAccounts((err, accounts) => {
+    async processEthDeposits(tokensInfo) {
+        utils.getEthClientsAccounts(async (err, accounts) => {
             if (err) {
-                console.log(err)
+                console.log('getEthClientsAccounts: ' + err)
                 return
             }
-            tokensInfo.forEach(tokenInfo => {
-                accounts.forEach(clientAccount => {
-                    models.sendEthDepositToBridge(clientAccount.eth_address, tokenInfo, (err, result) => {
+            for (var tokenInfo of tokensInfo) {
+                for (var clientAccount of accounts) {
+                    sendDeposit = () => new Promise((resolve, reject) => {
+                      models.sendEthDepositToBridge(clientAccount.eth_address, tokenInfo, (err, result) => {
                         if (err) {
-                            console.log(err)
+                            console.log('sendEthDepositToBridge: ' + err)
+                            reject(err)
+                        } else {
+                          resolve()
                         }
+                      })
                     })
-                })
-            })
+                    await sendDeposit().catch(console.log)
+                }
+            }
         })
     },
 
-    processBnbDeposits(tokensInfo) {
-        utils.getBnbClientsAccounts((err, accounts) => {
+    async processBnbDeposits(tokensInfo) {
+        utils.getBnbClientsAccounts(async (err, accounts) => {
             if (err) {
-                console.log(err)
+                console.log('getBnbClientsAccounts: ' + err)
                 return
             }
-            tokensInfo.forEach(tokenInfo => {
-                accounts.forEach(clientAccount => {
-                    models.sendBnbDepositToBridge(clientAccount.bnb_address, tokenInfo, (err, result) => {
-                        if (err) {
-                            console.log(err)
-                        }
+            for (var tokenInfo of tokensInfo) {
+                for (var clientAccount of accounts) {
+                    sendDeposit = () => new Promise((resolve, reject) => {
+                      models.sendBnbDepositToBridge(clientAccount.bnb_address, tokenInfo, (err, result) => {
+                          if (err) {
+                              console.log('sendBnbDepositToBridge: ' + err)
+                              reject(err)
+                          } else {
+                            resolve()
+                          }
+                      })
                     })
-                })
-            })
+
+                    await sendDeposit().catch(console.log)
+                }
+            }
         })
     },
 
